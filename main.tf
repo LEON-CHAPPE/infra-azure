@@ -9,7 +9,7 @@ data "azurerm_container_registry" "acr" {
 
 resource "azurerm_container_app_environment" "aca_env" {
   name                = "aca-env-${local.idapp}-${var.environment}"
-  location            = data.azurerm_resource_group.main.location
+  location            = var.environment == "dev" ? "West US" : (var.environment == "qa" ? "East US" : "East US 2")
   resource_group_name = data.azurerm_resource_group.main.name
 }
 
