@@ -8,8 +8,15 @@ data "azurerm_container_registry" "acr" {
 }
 
 resource "azurerm_container_app_environment" "aca_env" {
-  name                = "aca-env-${local.idapp}-${var.environment}"
-  location            = var.environment == "dev" ? "West US" : (var.environment == "qa" ? "East US" : "East US 2")
+  count               = var.environment == "dev" ? 1 : 0
+  name                = "aca-env-${local.idapp}-dev"
+  location            = data.azurerm_resource_group.main.location
+  resource_group_name = data.azurerm_resource_group.main.name
+}
+
+data "azurerm_container_app_environment" "existing_env" {
+  count               = var.environment != "dev" ? 1 : 0
+  name                = "aca-env-${local.idapp}-dev"
   resource_group_name = data.azurerm_resource_group.main.name
 }
 
@@ -19,7 +26,7 @@ resource "azurerm_container_app_environment" "aca_env" {
 
 resource "azurerm_container_app" "aca" {
   name                         = "aca-ms-${local.idapp}-${var.environment}"
-  container_app_environment_id = azurerm_container_app_environment.aca_env.id
+  container_app_environment_id = var.environment == "dev" ? azurerm_container_app_environment.aca_env[0].id : data.azurerm_container_app_environment.existing_env[0].id
   resource_group_name          = data.azurerm_resource_group.main.name
   revision_mode                = "Single"
 
@@ -45,7 +52,6 @@ resource "azurerm_container_app" "aca" {
       latest_revision = true
       percentage      = 100
     }
-
   }
 
   lifecycle {
@@ -54,9 +60,9 @@ resource "azurerm_container_app" "aca" {
       registry
     ]
   }
-  depends_on = [ azurerm_container_app_environment.aca_env ]
-}
 
+  depends_on = [azurerm_container_app_environment.aca_env]
+}
 
 # Dar permisos al ACA para leer del ACR Global
 resource "azurerm_role_assignment" "aca_pull_default_acr" {
@@ -64,18 +70,3 @@ resource "azurerm_role_assignment" "aca_pull_default_acr" {
   role_definition_name = "AcrPull"
   scope                = data.azurerm_container_registry.acr.id
 }
-# resource "azurerm_container_registry" "acr" {
-#   name                = "acr${local.idapp}${var.environment}"
-#   resource_group_name = data.azurerm_resource_group.main.name
-#   location            = data.azurerm_resource_group.main.location
-#   sku                 = "Basic"
-#   admin_enabled       = false
-# }
-
-# Dar permisos al ACA para leer del ACR
-# resource "azurerm_role_assignment" "aca_pull" {
-#   principal_id         = azurerm_container_app.aca.identity[0].principal_id
-#   role_definition_name = "AcrPull"
-#   scope                = azurerm_container_registry.acr.id
-# }
-
